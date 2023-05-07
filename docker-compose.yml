@@ -1,0 +1,198 @@
+---
+version: "3"
+
+networks:
+  loki:
+
+services:
+  loki_read:
+    image: grafana/loki:latest
+    command: "-config.file=/etc/loki/loki-config.yml -target=read"
+    user: "0"
+    ports:
+      - 3100
+      - 7946
+      - 9095
+    volumes:
+      - ./loki:/etc/loki
+    restart: unless-stopped
+    depends_on:
+      - minio
+    networks: &loki-dns
+      loki:
+        aliases:
+          - loki
+
+  loki_write:
+    image: grafana/loki:latest
+    command: "-config.file=/etc/loki/loki-config.yml -target=write"
+    ports:
+      - 3100
+      - 7946
+      - 9095
+    volumes:
+      - ./loki:/etc/loki
+    depends_on:
+      - minio
+    networks:
+      <<: *loki-dns
+
+  minio:
+    user: "0"
+    image: minio/minio
+    entrypoint:
+      - sh
+      - -euc
+      - |
+        mkdir -p /data/loki-data && \
+        mkdir -p /data/loki-ruler && \
+        minio server /data
+    environment:
+      - MINIO_ACCESS_KEY=loki
+      - MINIO_SECRET_KEY=supersecret
+      - MINIO_PROMETHEUS_AUTH_TYPE=public
+      - MINIO_UPDATE=off
+    ports:
+      - 9000
+    volumes:
+      - ./minio:/data
+    networks:
+      - loki
+
+  promtail:
+    image: grafana/promtail:2.4.0
+    volumes:
+      - /var/log:/var/log
+      - ~/logs/promtail:/etc/promtail
+    # ports:
+    #   - "1514:1514" # this is only needed if you are going to send syslogs
+    restart: unless-stopped
+    command: -config.file=/etc/promtail/promtail-config.yml
+    networks:
+      - loki
+
+  grafana:
+    image: grafana/grafana:latest
+    user: "0"
+    volumes:
+    - ./grafana:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    ###
+    entrypoint:
+      - sh
+      - -euc
+      - |
+        mkdir -p /etc/grafana/provisioning/datasources
+        cat <<EOF > /etc/grafana/provisioning/datasources/ds.yaml
+        apiVersion: 1
+        datasources:
+        - name: Loki
+          type: loki
+          access: proxy
+          url: http://gateway:3100
+          orgId: 1
+          basicAuth: true
+          basicAuthUser: loki
+          secureJsonData:
+            basicAuthPassword: loki
+          isDefault: true
+          version: 1
+          editable: true
+        EOF
+        /run.sh
+    ###
+    networks:
+      - loki
+
+
+  gateway:
+    image: nginx:latest
+    depends_on:
+      - loki_read
+      - loki_write
+    entrypoint:
+      - sh
+      - -euc
+      - |
+        cat <<EOF > /etc/nginx/nginx.conf
+        user  nginx;
+        worker_processes  16;  ## Default: 1
+        events {
+          worker_connections   1000;
+        }
+        http {
+          resolver 127.0.0.11;
+          auth_basic_user_file /etc/nginx/.htpasswd;
+          server {
+            listen             3100;
+            location = / {
+              auth_basic "Restricted";
+              auth_basic_user_file /etc/nginx/.htpasswd;
+              return 200 'OK';
+            }
+            location = /api/prom/push {
+              auth_basic "Restricted";
+              auth_basic_user_file /etc/nginx/.htpasswd;
+              proxy_pass       http://loki_write:3100\$$request_uri;
+            }
+            location = /write/ready {
+              auth_basic "Restricted";
+              auth_basic_user_file /etc/nginx/.htpasswd;
+              proxy_pass       http://loki_write:3100/ready;
+            }
+            location = /write/ring {
+              auth_basic "Restricted";
+              auth_basic_user_file /etc/nginx/.htpasswd;
+              proxy_pass       http://loki_write:3100/ring;
+            }
+            location = /write/metrics {
+              auth_basic "Restricted";
+              auth_basic_user_file /etc/nginx/.htpasswd;
+              proxy_pass       http://loki_write:3100/metrics;
+            }
+            location = /read/ready {
+              auth_basic "Restricted";
+              auth_basic_user_file /etc/nginx/.htpasswd;
+              proxy_pass       http://loki_read:3100/ready;
+            }
+            location = /api/prom/tail {
+              auth_basic "Restricted";
+              auth_basic_user_file /etc/nginx/.htpasswd;
+              proxy_pass       http://loki_read:3100\$$request_uri;
+              proxy_set_header Upgrade \$$http_upgrade;
+              proxy_set_header Connection "upgrade";
+            }
+            location ~ /api/prom/.* {
+              auth_basic "Restricted";
+              auth_basic_user_file /etc/nginx/.htpasswd;
+              proxy_pass       http://loki_read:3100\$$request_uri;
+            }
+            location = /loki/api/v1/push {
+              auth_basic "Restricted";
+              auth_basic_user_file /etc/nginx/.htpasswd;
+              proxy_pass       http://loki_write:3100\$$request_uri;
+            }
+            location = /loki/api/v1/tail {
+              auth_basic "Restricted";
+              auth_basic_user_file /etc/nginx/.htpasswd;
+              proxy_pass       http://loki_read:3100\$$request_uri;
+              proxy_set_header Upgrade \$$http_upgrade;
+              proxy_set_header Connection "upgrade";
+            }
+            location ~ /loki/api/.* {
+              auth_basic "Restricted";
+              auth_basic_user_file /etc/nginx/.htpasswd;
+              proxy_pass       http://loki_read:3100\$$request_uri;
+            }
+          }
+        }
+        EOF
+        /docker-entrypoint.sh nginx -g "daemon off;"
+    volumes:
+      - ./nginx/.htpasswd:/etc/nginx/.htpasswd
+    ports:
+      - "3100:3100"
+    networks:
+      - loki
