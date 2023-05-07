@@ -48,8 +48,8 @@ services:
         mkdir -p /data/loki-ruler && \
         minio server /data
     environment:
-      - MINIO_ACCESS_KEY=loki
-      - MINIO_SECRET_KEY=supersecret
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
       - MINIO_PROMETHEUS_AUTH_TYPE=public
       - MINIO_UPDATE=off
     ports:
