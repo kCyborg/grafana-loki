@@ -355,3 +355,4 @@ __________________________________________
 - Automatize the ansible playbook (right now it use the default credential for the API authentication, this should change)
 - Add a nice custom dashboard
 - Add some rules
+- Add a wayt to manage fqdn, certificates and such things
