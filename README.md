@@ -126,7 +126,7 @@ password=loki
 printf "$username:$(openssl passwd -apr1 $password)\n" > nginx/.htpasswd
 ```
 
-### 3.2 Changing Min.io crentials
+### 3.2 Changing Min.io credentials
 
 Min.io credentials will be only accesible wihtin containers in a local network but, if we want, we can change MINIO credentials:
 
