@@ -1,0 +1,20 @@
+---
+- name: Add promtail user to adm group
+  user:
+    name: promtail
+    groups: adm
+    append: yes
+
+#- name: Allow promtail user to run all commands without a password
+#  lineinfile:
+#    dest: /etc/sudoers.d/promtail
+#    line: 'promtail ALL=(ALL:ALL) NOPASSWD: ALL'
+#    validate: 'visudo -cf %s'
+
+- name: Create sudoers file for promtail user
+  copy:
+    content: 'promtail ALL=(ALL:ALL) NOPASSWD: ALL\n'
+    dest: /etc/sudoers.d/promtail
+    mode: '0440'
+    owner: root
+    group: root

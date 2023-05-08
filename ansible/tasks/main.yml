@@ -1,0 +1,6 @@
+---
+# tasks file for loki-clients
+
+- import_tasks: 1-download-and-install.yml
+- import_tasks: 2-promtail-user.yml
+- import_tasks: 3-promtail-configuration.yml

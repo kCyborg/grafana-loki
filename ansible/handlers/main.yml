@@ -1,0 +1,7 @@
+---
+# handlers file for loki-clients
+
+- name: Restart Promtail service
+  systemd:
+    name: promtail
+    state: restarted

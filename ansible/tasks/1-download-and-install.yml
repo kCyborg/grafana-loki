@@ -1,0 +1,8 @@
+---
+- name: Download and install Promtail
+  apt:
+    deb: https://github.com/grafana/loki/releases/download/v2.8.1/promtail_2.8.1_amd64.deb
+  args:
+    state: present
+    # Uncomment if this will be run in any RHEL OS
+    #unsafe_writes: true

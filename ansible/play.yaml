@@ -1,0 +1,7 @@
+---
+- name: Install and configure Promtail on servers
+  hosts: loki_clients
+  become: true
+  roles:
+#    - ~/ansibleconf/roles/loki-clients
+    - ~/ansibleconf/roles/loki-clients
