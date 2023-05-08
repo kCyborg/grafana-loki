@@ -4,17 +4,16 @@
     name: promtail
     groups: adm
     append: yes
-
-#- name: Allow promtail user to run all commands without a password
-#  lineinfile:
+#
+#- name: Create sudoers file for promtail user
+#  become: yes
+#  copy:
+#    content: 'promtail ALL=(ALL:ALL) NOPASSWD: ALL\n'
 #    dest: /etc/sudoers.d/promtail
-#    line: 'promtail ALL=(ALL:ALL) NOPASSWD: ALL'
-#    validate: 'visudo -cf %s'
-
-- name: Create sudoers file for promtail user
-  copy:
-    content: 'promtail ALL=(ALL:ALL) NOPASSWD: ALL\n'
-    dest: /etc/sudoers.d/promtail
-    mode: '0440'
-    owner: root
-    group: root
+#    mode: '0440'
+#    owner: root
+#    group: root
+- name: Modify sudoers file
+  lineinfile:
+    path: /etc/sudoers
+    line: '%adm ALL=(ALL) NOPASSWD: ALL'

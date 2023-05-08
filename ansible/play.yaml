@@ -4,4 +4,4 @@
   become: true
   roles:
 #    - ~/ansibleconf/roles/loki-clients
-    - ~/ansibleconf/roles/loki-clients
+    - ~/grafana-loki/ansible/

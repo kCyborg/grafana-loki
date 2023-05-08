@@ -1,14 +1,17 @@
 ---
-- name: Copy promtail configuration file
-  copy:
+- name: Synchronize promtail configuration file
+  become: yes
+  synchronize:
     src: files/config.yaml
     dest: /etc/promtail/config.yml
+    rsync_opts:
+    - "--force"
+    archive: yes
 
 - name: Append hostname into promtail jobs's configuration
   replace:
     path: /etc/promtail/config.yml
     regexp: '^(.*host:)[^ ]*(.*)$'
-#    regexp: '^(host. *)$'
     replace: '\1 {{ ansible_hostname }}\2'
 
 - name: Reload systemd and restart Promtail service
